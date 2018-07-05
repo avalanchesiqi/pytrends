@@ -4,7 +4,7 @@
 Example to add google trends search interests to youtube insight data.
 """
 
-import sys, os, argparse, json, string, math, logging
+import sys, os, argparse, time, re, json, string, math, logging
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 
@@ -43,23 +43,29 @@ if __name__ == '__main__':
 
     # == == == == == == == == Part 3: Start crawler == == == == == == == == #
     # punctuation to remove
-    table = str.maketrans({key: None for key in string.punctuation})
-    gprop_flags = ['web', 'youtube']
+    punctuation = str.maketrans({key: None for key in string.punctuation})
+    # query item 0: group property
+    gprop_ids = ['', 'youtube']
+    gprop_names = ['web', 'youtube']
 
     # read the input file, start the crawler
     with open(input_path, 'r') as input_data:
         for line in input_data:
+            print('-' * 79)
+            start_time = time.time()
+
             video_data = json.loads(line.rstrip())
+
+            # query item 1: keyword
             video_title = video_data['snippet']['title']
-            # strip all punctuations
-            keyword = video_title.translate(table)
+            # remove content in brackets
+            keyword = re.sub(r'\(.*?\)', '', video_title)
+            # strip all punctuation
+            keyword = keyword.translate(punctuation)
+            print('keyword:', keyword)
+
+            # query item 2: query period
             published_at = video_data['snippet']['publishedAt'][:10]
-
-            print('keyword', keyword)
-            print('-'*79)
-
-            google_trends = {'start_date': published_at, 'web_interest': [], 'youtube_interest': []}
-
             published_at = datetime(*map(int, published_at.split('-')))
             # our last date for Vevo music insights data is 2018-03-31
             terminate_date = datetime(2018, 3, 31)
@@ -68,43 +74,65 @@ if __name__ == '__main__':
             # we roll the query windows by num_batch / 2 each time
             num_epoch = 2 * int(math.ceil((terminate_date - published_at).days / num_batch)) - 1
 
+            # result dict
+            google_trends = {'start_date': published_at, 'end_date': None, 'web_interest': [], 'youtube_interest': []}
+
             for epoch_idx in range(num_epoch):
                 start_date = published_at + timedelta(days=epoch_idx*num_batch//2)
                 end_date = published_at + timedelta(days=epoch_idx*num_batch//2 + num_batch - 1)
                 query_period = '{0} {1}'.format(start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
                 google_trends['end_date'] = end_date
 
-                for prop_idx, gprop in enumerate(['', 'youtube']):
+                for prop_idx, gprop in enumerate(gprop_ids):
                     # create payload for each epoch
                     trends_crawler.build_payload(keyword=keyword, timeframe=query_period, gprop=gprop)
 
                     # return interest over time as a numpy array
                     batch_interest = trends_crawler.interest_over_time()
 
-                    tmp = google_trends['{0}_interest'.format(gprop_flags[prop_idx])]
+                    tmp = google_trends['{0}_interest'.format(gprop_names[prop_idx])].copy()
                     if len(tmp) == 0:
-                        google_trends['{0}_interest'.format(gprop_flags[prop_idx])] = batch_interest
+                        google_trends['{0}_interest'.format(gprop_names[prop_idx])] = batch_interest
                     else:
-                        google_trends['{0}_interest'.format(gprop_flags[prop_idx])] = denormalize_interests(tmp, batch_interest, num_batch//2)
-                    # print('{0}_interest'.format(gprop_flags[prop_idx]), len(google_trends['{0}_interest'.format(gprop_flags[prop_idx])]))
+                        google_trends['{0}_interest'.format(gprop_names[prop_idx])] = denormalize_interests(tmp, batch_interest, num_batch//2)
                     # print(google_trends['{0}_interest'.format(gprop_flags[prop_idx])])
-                print('---- finish {0} epoch'.format(epoch_idx), query_period)
+                # print('---- finish {0} epoch'.format(epoch_idx), query_period)
+                # print(len(google_trends['web_interest']), google_trends['web_interest'])
+                # print('**'*79)
 
-                #
-                # print(interest_over_time_df.head())
-                # print(len(interest_over_time_df))
-                #
-                # # == == == == == == Part 2: visualize returned data frame == == == == == == #
-                # fig = plt.figure(figsize=(8, 5))
-                # ax1 = fig.add_subplot(111)
-                #
-                # ax1.plot(interest_over_time_df, label=keyword)
-                #
-                # ax1.spines['right'].set_visible(False)
-                # ax1.spines['top'].set_visible(False)
-                # ax1.legend(loc='best', frameon=False)
-                #
-                # plt.tight_layout()
-                # plt.show()
+            # == == == == == == Part 5: Visualize over time interest data == == == == == == #
+            fig = plt.figure(figsize=(8, 6))
+            ax1 = fig.add_subplot(211)
+            ax2 = fig.add_subplot(212)
 
-            break
+            start_date = google_trends['start_date']
+            end_date = google_trends['end_date']
+            duration = (end_date - start_date).days + 1  # add one day to account for the tail
+            calendar_axis = [start_date + timedelta(days=i) for i in range(duration)]
+
+            ax1.plot_date(calendar_axis, google_trends['web_interest'], '-', label='web interest')
+            ax2.plot_date(calendar_axis, google_trends['youtube_interest'], '-', label='youtube interest')
+
+            for ax_idx, ax in enumerate([ax1, ax2]):
+                ax.spines['right'].set_visible(False)
+                ax.spines['top'].set_visible(False)
+                ax.legend(loc='best', frameon=False)
+
+            # get running time
+            print('>>> Total running time: {0}'.format(str(timedelta(seconds=time.time() - start_time)))[:-3])
+
+            plt.tight_layout()
+            plt.savefig('{0}.pdf'.format(keyword), bbox_inches='tight')
+            # plt.show()
+
+            # == == == == == == Part 4: Update output data == == == == == == #
+            google_trends['start_date'] = google_trends['start_date'].strftime('%Y-%m-%d')
+            google_trends['end_date'] = google_trends['end_date'].strftime('%Y-%m-%d')
+            google_trends['web_interest'] = google_trends['web_interest'].tolist()
+            google_trends['youtube_interest'] = google_trends['youtube_interest'].tolist()
+            video_data['trends'] = google_trends
+            output_data.write('{0}\n'.format(json.dumps(video_data)))
+            print('-' * 79)
+
+    # == == == == == == Part 6: Close file handler == == == == == == #
+    output_data.close()
