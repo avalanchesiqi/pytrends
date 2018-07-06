@@ -7,8 +7,7 @@ Inspired by https://github.com/GeneralMills/pytrends and modified by Siqi Wu.
 Email: siqi dot wu at anu dot edu dot au
 """
 
-import time, json, requests
-from datetime import datetime, timedelta
+import json, requests
 import numpy as np
 import pandas as pd
 
@@ -39,8 +38,8 @@ class TrendReq(object):
         # we don't support multiple keywords therefore change kw_list to keyword
         self.keyword = None
 
-        # self.proxies = proxies  # add a proxy option
-        # # proxies format: {"http": "http://192.168.0.1:8888" , "https": "https://192.168.0.1:8888"}
+        self.proxies = proxies  # add a proxy option
+        # proxies format: {"http": "http://192.168.0.1:8888" , "https": "https://192.168.0.1:8888"}
         self.cookies = dict(filter(
             lambda i: i[0] == 'NID',
             requests.get('https://trends.google.com').cookies.items()
@@ -61,8 +60,8 @@ class TrendReq(object):
         :return:
         """
         s = requests.session()
-        # if self.proxies != '':
-        #     s.proxies.update(self.proxies)
+        if self.proxies != '':
+            s.proxies.update(self.proxies)
         if method == TrendReq.POST_METHOD:
             response = s.post(url, cookies=self.cookies, **kwargs)
         else:
@@ -123,7 +122,7 @@ class TrendReq(object):
         return
 
     def interest_over_time(self):
-        """ Request data from Google's Interest Over Time section and return a dataframe.
+        """ Request data from Google's Interest Over Time section and return a numpy array.
         """
 
         over_time_payload = {
