@@ -76,12 +76,12 @@ if __name__ == '__main__':
             num_batch = 30
             # we roll the query windows by num_batch / 2 each time
             num_epoch = 2 * int(math.ceil((terminate_date - published_at).days / num_batch)) - 1
-            logging.info('>>> Number of query to be sent: {0}'.format(num_epoch))
+            logging.info('>>> Number of query to be sent: {0}'.format(num_epoch*2))
 
             # result dict
             google_trends = {'start_date': published_at, 'end_date': None, 'web_interest': [], 'youtube_interest': []}
-            trends_crawler = TrendReq(proxies={'https': 'https://103.88.234.90:53281'})
-            print('cookie', trends_crawler.cookies)
+            # trends_crawler = TrendReq(proxies={'https': 'https://103.88.234.90:53281'})
+            trends_crawler = TrendReq()
 
             for epoch_idx in range(num_epoch):
                 # sleep to avoid rate limit
@@ -94,9 +94,8 @@ if __name__ == '__main__':
 
                 for prop_idx, gprop in enumerate(gprop_ids):
                     # create payload for each epoch
-                    print('----')
                     trends_crawler.build_payload(keyword=keyword, timeframe=query_period, gprop=gprop)
-                    print('****', epoch_idx)
+                    print('number requests sent:', epoch_idx*2+prop_idx+1)
 
                     # return interest over time as a numpy array
                     batch_interest = trends_crawler.interest_over_time()
