@@ -14,7 +14,8 @@ import numpy.random as random
 from datetime import datetime, timedelta
 
 from pytrends.request import TrendReq
-from pytrends.utils import diff_month, plot_interest_over_time, calendar_days
+from pytrends.utils import diff_month, calendar_days
+# from pytrends.utils import plot_interest_over_time
 
 
 if __name__ == '__main__':
@@ -105,9 +106,9 @@ if __name__ == '__main__':
                     if args.verbose:
                         logging.info('start date: {0}; number of days: {1}'.format(release_date, len(daily_interest)))
 
-                    # visualize over time interest data
-                    if args.plot:
-                        plot_interest_over_time(google_trends)
+                    # # visualize over time interest data
+                    # if args.plot:
+                    #     plot_interest_over_time(google_trends)
                 else:
                     logging.error('+++ No enough data for query ({0})'.format(gt_queries))
             # if release date before 2016-07-01, we query monthly data first then rescale daily data
@@ -188,8 +189,8 @@ if __name__ == '__main__':
                         scaled_interest.extend(tmp)
                         google_trends['youtube_interest'] = scaled_interest
 
-                    if args.plot:
-                        plot_interest_over_time(google_trends)
+                    # if args.plot:
+                    #     plot_interest_over_time(google_trends)
 
             # == == == == == == Part 4: Update output data == == == == == == #
             google_trends['youtube_interest'] = google_trends['youtube_interest'][-num_days:]
