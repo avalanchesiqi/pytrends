@@ -6,6 +6,9 @@ Example to crawl youtube insight data.
 Example inputs:
 {"keyword": "adele - hello", "gt_queries": "\"adele hello\" + \"hello adele\"", "vid": ["YQHsXMglC9A", "DfG6VKnjrVw"], "release_date": "2015-10-23T06:54:18", "popularity": 1961453485}
 {"keyword": "usher - rivals", "gt_queries": "\"usher rivals\" + \"rivals usher\"", "vid": ["IYRJYApTlUQ"], "release_date": "2016-09-02T07:00:01", "popularity": 14016762}
+
+Example query:
+python example.py -i data/query_partition.json -o data/out_partition.json -v
 """
 
 import sys, os, argparse, time, json, logging
@@ -25,10 +28,8 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', help='output file path of search interests', required=True)
     parser.add_argument('-p', '--plot', dest='plot', action='store_true', default=False)
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', default=False)
-    parser.add_argument('-f', '--force', dest='force', action='store_true', default=False)
     parser.set_defaults(plot=False)
     parser.set_defaults(verbose=False)
-    parser.set_defaults(force=False)
     args = parser.parse_args()
 
     input_path = args.input
@@ -40,12 +41,17 @@ if __name__ == '__main__':
         print('>>> Exit...')
         sys.exit(1)
 
-    if os.path.exists(output_path) and not args.force:
-        print('>>> Output file already exists, rename or backup it before starting new job!')
-        print('>>> Exit...')
-        sys.exit(1)
-
-    output_data = open(output_path, 'w+')
+    visited_query = set()
+    if os.path.exists(output_path):
+        print('>>> Output file already exists, continue from breaking point...')
+        with open(output_path, 'r') as existing_file:
+            for line in existing_file:
+                keyword = json.loads(line.rstrip())['keyword']
+                visited_query.add(keyword)
+        output_data = open(output_path, 'a+')
+    else:
+        print('>>> Start a new output file...')
+        output_data = open(output_path, 'w+')
 
     # == == == == == == Part 2: Start GT crawler == == == == == == #
     # query period from 2008-01-01 to 2017-02-28
@@ -79,6 +85,10 @@ if __name__ == '__main__':
                 query_json = json.loads(line.rstrip())
 
                 keyword = query_json['keyword']
+                if len(visited_query) > 0 and keyword in visited_query:
+                    visited_query.remove(keyword)
+                    continue
+
                 gt_queries = query_json['gt_queries']
                 # remove quotes in queries
                 gt_queries = gt_queries.replace('"', '')
@@ -142,7 +152,7 @@ if __name__ == '__main__':
 
                         for request_idx in range(num_requests):
                             # sleep to avoid rate limit
-                            time.sleep(12 * random.random())
+                            time.sleep(30 * random.random())
 
                             batch_query_period = query_periods[request_idx]
                             batch_start_date, batch_end_date = batch_query_period.split()
