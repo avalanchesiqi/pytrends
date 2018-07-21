@@ -85,8 +85,9 @@ if __name__ == '__main__':
                 query_json = json.loads(line.rstrip())
 
                 keyword = query_json['keyword']
-                if len(visited_query) > 0 and keyword in visited_query:
-                    visited_query.remove(keyword)
+                if len(visited_query) > 0:
+                    if keyword in visited_query:
+                        visited_query.remove(keyword)
                     continue
 
                 gt_queries = query_json['gt_queries']
