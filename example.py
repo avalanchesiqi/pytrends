@@ -54,6 +54,9 @@ if __name__ == '__main__':
         output_data = open(output_path, 'w+')
 
     # == == == == == == Part 2: Start GT crawler == == == == == == #
+    # sleep to avoid rate limit
+    sleep_time = 60
+
     # query period from 2008-01-01 to 2017-02-28
     all_period = '2008-01-01 2017-02-28'
 
@@ -110,6 +113,10 @@ if __name__ == '__main__':
 
                     # initialize google trends crawler
                     trends_crawler = TrendReq()
+
+                    # sleep before crawling
+                    time.sleep(sleep_time * random.random())
+
                     trends_crawler.build_payload(keyword=gt_queries, timeframe=query_period, gprop=gprop)
                     daily_interest = trends_crawler.interest_over_time()
                     global_cnt += 1
@@ -131,6 +138,10 @@ if __name__ == '__main__':
 
                     # initialize google trends crawler
                     trends_crawler = TrendReq()
+
+                    # sleep before crawling
+                    time.sleep(sleep_time * random.random())
+
                     trends_crawler.build_payload(keyword=gt_queries, timeframe=all_period, gprop=gprop)
                     alltime_interest = trends_crawler.interest_over_time()
                     global_cnt += 1
@@ -152,12 +163,12 @@ if __name__ == '__main__':
                         num_requests = num_months // 8 + 1
 
                         for request_idx in range(num_requests):
-                            # sleep to avoid rate limit
-                            time.sleep(30 * random.random())
-
                             batch_query_period = query_periods[request_idx]
                             batch_start_date, batch_end_date = batch_query_period.split()
                             batch_month_weight = alltime_interest[-8*request_idx-8:][:8]
+
+                            # sleep before crawling
+                            time.sleep(sleep_time * random.random())
 
                             trends_crawler.build_payload(keyword=gt_queries, timeframe=batch_query_period, gprop=gprop)
                             # return interest over time as a numpy array, every batch covers a month
