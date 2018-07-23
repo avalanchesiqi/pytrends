@@ -27,8 +27,8 @@ def calendar_days(start_date, end_date):
     return ret
 
 
-def diff_month(d1, d2):
-    return (d1.year - d2.year) * 12 + d1.month - d2.month + 1
+def diff_month(end_date_obj, start_date_obj):
+    return (end_date_obj.year - start_date_obj.year) * 12 + end_date_obj.month - start_date_obj.month
 
 
 # def plot_interest_over_time(gt_dict):
