@@ -164,6 +164,10 @@ if __name__ == '__main__':
 
                         for request_idx in range(num_requests):
                             batch_query_period = query_periods[request_idx]
+
+                            if args.verbose:
+                                logging.info('batch query period: {0}, request {1} out of {2}'.format(batch_query_period, request_idx, num_requests))
+
                             batch_start_date, batch_end_date = batch_query_period.split()
                             batch_month_weight = alltime_interest[-8*request_idx-8:][:8]
 
@@ -201,7 +205,6 @@ if __name__ == '__main__':
                                 scaled_interest = scaled_interest.tolist()
 
                                 if args.verbose:
-                                    logging.info('batch query period: {0}'.format(batch_query_period))
                                     logging.info(','.join(map(str, batch_raw_interest)))
 
                             else:
@@ -209,6 +212,9 @@ if __name__ == '__main__':
                                 end_date_obj = datetime.strptime(batch_end_date, '%Y-%m-%d')
                                 batch_num_days = (end_date_obj - start_date_obj).days + 1
                                 scaled_interest = [0] * batch_num_days
+
+                                if args.verbose:
+                                    logging.info(','.join(map(str, scaled_interest)))
 
                             tmp = google_trends['youtube_interest']
                             scaled_interest.extend(tmp)
@@ -219,6 +225,11 @@ if __name__ == '__main__':
 
                 # == == == == == == Part 4: Update output data == == == == == == #
                 google_trends['youtube_interest'] = google_trends['youtube_interest'][-num_days:]
+
+                # sanity check: length of youtube_interest should equal to num_days
+                if not len(google_trends['youtube_interest']) == num_days:
+                    logging.warning('+++ output the length of overtime interest does not equal to num of days!!!')
+
                 if len(google_trends['youtube_interest']) > 0:
                     query_json['trends'] = google_trends
                     output_data.write('{0}\n'.format(json.dumps(query_json)))
@@ -227,8 +238,10 @@ if __name__ == '__main__':
                 logging.info('>>> Running time: {0}'.format(str(timedelta(seconds=time.time() - start_time))[:-3]))
                 logging.info('*' * 79)
             except Exception as e:
-                logging.error('>>> ERROR!!!')
                 logging.error(str(e))
+                # handle rate limit message, else skip (such as bad requests)
+                if 'code 429' in str(e):
+                    break
 
     # == == == == == == Part 5: Close file handler == == == == == == #
     output_data.close()
