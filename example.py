@@ -164,10 +164,13 @@ if __name__ == '__main__':
                             batch_query_period = QUERY_PERIODS[request_idx]
 
                             if args.verbose:
-                                logging.info('>> batch query period: {0}, request {1} out of {2}'.format(batch_query_period, request_idx, num_requests))
+                                logging.info('>> batch query period: {0}, request {1} out of {2}'.format(batch_query_period, request_idx+1, num_requests))
 
                             batch_start_date, batch_end_date = batch_query_period.split()
-                            batch_month_weight = alltime_interest[-8*request_idx-8: -8*request_idx]
+                            if request_idx == 0:
+                                batch_month_weight = alltime_interest[-8:]
+                            else:
+                                batch_month_weight = alltime_interest[-8*request_idx-8: -8*request_idx]
 
                             # sleep before crawling
                             time.sleep(SLEEP_TIME)
@@ -233,7 +236,7 @@ if __name__ == '__main__':
                 logging.info('>>> Running time: {0}'.format(str(timedelta(seconds=time.time() - start_time))[:-3]))
                 logging.info('*' * 79)
             except Exception as e:
-                logging.error(str(e))
+                logging.error('+++ Error on line {0}: {1}'.format(sys.exc_info()[-1].tb_lineno, str(e)))
                 # handle rate limit message, else skip (such as bad requests)
                 if 'code 429' in str(e):
                     break
