@@ -224,6 +224,9 @@ if __name__ == '__main__':
                         #     plot_interest_over_time(google_trends)
 
                 # == == == == == == Part 4: Update output data == == == == == == #
+                # slicing the last 'num_days' elements
+                google_trends['youtube_interest'] = google_trends['youtube_interest'][-num_days:]
+
                 # sanity check: length of youtube_interest should equal to num_days
                 if not len(google_trends['youtube_interest']) == num_days:
                     logging.warning('+++ output the length of overtime interest does not equal to num of days!!!')
