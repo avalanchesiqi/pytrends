@@ -4,13 +4,14 @@
 Example to crawl youtube interest data from Google trends platform.
 
 Example inputs:
-{"keyword": "adele - hello", "gt_queries": "\"adele hello\" + \"hello adele\"", "vid": ["YQHsXMglC9A", "DfG6VKnjrVw"], "release_date": "2015-10-23T06:54:18", "popularity": 1961453485}
-{"keyword": "usher - rivals", "gt_queries": "\"usher rivals\" + \"rivals usher\"", "vid": ["IYRJYApTlUQ"], "release_date": "2016-09-02T07:00:01", "popularity": 14016762}
+{"keyword": "adele - hello", "gt_queries": "\"adele hello\" + \"hello adele\"", "vid": ["YQHsXMglC9A", "DfG6VKnjrVw"], "start_date": "2015-10-23", "popularity": 1961453485}
+{"keyword": "usher - rivals", "gt_queries": "\"usher rivals\" + \"rivals usher\"", "vid": ["IYRJYApTlUQ"], "start_date": "2016-09-02", "popularity": 14016762}
 
 Example query:
 python example.py -i data/query_partition.json -o data/out_partition.json -v
 """
 
+from __future__ import print_function, division
 import sys, os, argparse, time, json, logging
 import numpy as np
 from datetime import datetime, timedelta
@@ -56,8 +57,8 @@ if __name__ == '__main__':
     # sleep to avoid rate limit
     SLEEP_TIME = 62
 
-    # query period from 2008-01-01 to 2017-02-28
-    ALL_PERIOD = '2008-01-01 2017-02-28'
+    # query period from 2009-12-01 to 2017-06-30
+    ALL_PERIOD = '2009-12-01 2017-06-30'
 
     # set group property
     GPROP = 'youtube'
@@ -66,15 +67,14 @@ if __name__ == '__main__':
     GLOBAL_CNT = 0
 
     # end date for all videos
-    END_DATE = '2017-02-28'
-    END_DATE_OBJ = datetime.strptime(END_DATE, '%Y-%m-%d')
+    end_date_str = '2017-06-30'
+    end_date_obj = datetime.strptime(end_date_str, '%Y-%m-%d')
 
     # time range for backwards querying, every 8 month
-    QUERY_PERIODS = ['2016-07-01 2017-02-28', '2015-11-01 2016-06-30', '2015-03-01 2015-10-31',
-                     '2014-07-01 2015-02-28', '2013-11-01 2014-06-30', '2013-03-01 2013-10-31',
-                     '2012-07-01 2013-02-28', '2011-11-01 2012-06-30', '2011-03-01 2011-10-31',
-                     '2010-07-01 2011-02-28', '2009-11-01 2010-06-30', '2009-03-01 2009-10-31',
-                     '2008-07-01 2009-02-28', '2008-01-01 2008-06-30']
+    QUERY_PERIODS = ['2016-11-01 2017-06-30', '2016-03-01 2016-10-31', '2015-07-01 2016-02-29',
+                     '2014-11-01 2015-06-30', '2014-03-01 2014-10-31', '2013-07-01 2014-02-28',
+                     '2012-11-01 2013-06-30', '2012-03-01 2012-10-31', '2011-07-01 2012-02-29',
+                     '2010-11-01 2011-06-30', '2010-03-01 2010-10-31', '2009-12-01 2010-02-28']
 
     # == == == == == == Part 3: Start Google trends crawler == == == == == == #
     # read queries from the input file
@@ -86,31 +86,28 @@ if __name__ == '__main__':
                 local_cnt = 0
 
                 query_json = json.loads(line.rstrip())
-
                 keyword = query_json['keyword']
 
                 # if current keyword exists in visited query, skip current keyword
                 if len(visited_query) > 0 and keyword in visited_query:
-                    visited_query.remove(keyword)
+                    # visited_query.remove(keyword)
                     continue
 
                 gt_queries = query_json['gt_queries']
-                release_date = query_json['release_date'][:10]
-                if release_date < '2008-01-01':
-                    release_date = '2008-01-01'
-                release_date_obj = datetime.strptime(release_date, '%Y-%m-%d')
+                start_date_str = query_json['start_date']
+                start_date_obj = datetime.strptime(start_date_str, '%Y-%m-%d')
                 # in Google trends setting, both ends are inclusive
-                num_days = (END_DATE_OBJ - release_date_obj).days + 1
+                num_days = (end_date_obj - start_date_obj).days + 1
 
                 # result dict
-                google_trends = {'release_date': release_date, 'end_date': END_DATE, 'youtube_interest': []}
+                google_trends = {'start_date': start_date_str, 'end_date': end_date_str, 'daily_search': []}
 
                 logging.info('-' * 79)
                 # ----------- crawl branch 1 -----------
-                # if release date after 2016-07-01, we only request once to get daily interest
-                if release_date >= '2016-07-01':
+                # if start date after 2016-11-01, we only request once to get daily interest
+                if start_date_str >= '2016-11-01':
                     logging.info('>>> One query to be sent for query ({0})'.format(gt_queries))
-                    query_period = '{0} {1}'.format(release_date, END_DATE)
+                    query_period = '{0} {1}'.format(start_date_str, end_date_str)
 
                     # sleep before crawling
                     time.sleep(SLEEP_TIME)
@@ -118,15 +115,15 @@ if __name__ == '__main__':
                     # initialize and start google trends crawler
                     trends_crawler = TrendReq()
                     trends_crawler.build_payload(keyword=gt_queries, timeframe=query_period, gprop=GPROP)
-                    daily_interest = trends_crawler.interest_over_time().tolist()
+                    daily_search = trends_crawler.interest_over_time().tolist()
                     GLOBAL_CNT += 1
                     local_cnt += 1
 
-                    if daily_interest is not None:
-                        google_trends['youtube_interest'] = daily_interest
+                    if daily_search is not None:
+                        google_trends['daily_search'] = daily_search
                         if args.verbose:
-                            logging.info('start date: {0}; number of days: {1}'.format(release_date, len(daily_interest)))
-                            logging.info(','.join(map(str, daily_interest)))
+                            logging.info('start date: {0}; number of days: {1}'.format(start_date_str, len(daily_search)))
+                            logging.info(','.join(map(str, daily_search)))
 
                         # # visualize over time interest data
                         # if args.plot:
@@ -136,7 +133,7 @@ if __name__ == '__main__':
                 # ----------- crawl branch 2 -----------
                 # if release date before 2016-07-01, we query monthly data first then rescale to daily data
                 else:
-                    logging.info('>>> Query monthly interest from 2008 for query {0}'.format(gt_queries))
+                    logging.info('>>> Query monthly interest from 2009-12-01 for query {0}'.format(gt_queries))
 
                     # sleep before crawling
                     time.sleep(SLEEP_TIME)
@@ -144,20 +141,20 @@ if __name__ == '__main__':
                     # initialize and start google trends crawler
                     trends_crawler = TrendReq()
                     trends_crawler.build_payload(keyword=gt_queries, timeframe=ALL_PERIOD, gprop=GPROP)
-                    alltime_interest = trends_crawler.interest_over_time().tolist()
+                    alltime_search = trends_crawler.interest_over_time().tolist()
                     GLOBAL_CNT += 1
                     local_cnt += 1
 
-                    if alltime_interest is None:
+                    if alltime_search is None:
                         logging.error('+++ No enough data for query ({0})'.format(keyword))
                     else:
                         if args.verbose:
                             logging.info('>>> ALL TIME query period: {0}'.format(ALL_PERIOD))
-                            logging.info('>>> {0}'.format(','.join(map(str, alltime_interest))))
+                            logging.info('>>> {0}'.format(','.join(map(str, alltime_search))))
 
                         # crawl every 8 months
-                        # number of months till 2017-02, we hard code the query periods list
-                        num_months = diff_month(END_DATE_OBJ, release_date_obj)
+                        # number of months till 2017-06, we hard code the query periods list
+                        num_months = diff_month(end_date_obj, start_date_obj)
                         num_requests = num_months // 8 + 1
 
                         for request_idx in range(num_requests):
@@ -168,9 +165,9 @@ if __name__ == '__main__':
 
                             batch_start_date, batch_end_date = batch_query_period.split()
                             if request_idx == 0:
-                                batch_month_weight = alltime_interest[-8:]
+                                batch_month_weight = alltime_search[-8:]
                             else:
-                                batch_month_weight = alltime_interest[-8*request_idx-8: -8*request_idx]
+                                batch_month_weight = alltime_search[-8*request_idx-8: -8*request_idx]
 
                             # sleep before crawling
                             time.sleep(SLEEP_TIME)
@@ -217,19 +214,19 @@ if __name__ == '__main__':
                                 if args.verbose:
                                     logging.info('>>> {0}'.format(','.join(map(str, batch_scaled_interest))))
 
-                            batch_scaled_interest.extend(google_trends['youtube_interest'])
-                            google_trends['youtube_interest'] = batch_scaled_interest
+                            batch_scaled_interest.extend(google_trends['daily_search'])
+                            google_trends['daily_search'] = batch_scaled_interest
 
                         # if args.plot:
                         #     plot_interest_over_time(google_trends)
 
                 # == == == == == == Part 4: Update output data == == == == == == #
-                # slicing the last 'num_days' elements
-                google_trends['youtube_interest'] = google_trends['youtube_interest'][-num_days:]
+                # slicing the last 'num_days' elements, this removes the first 7 days in 2009-12
+                google_trends['daily_search'] = google_trends['daily_search'][-num_days:]
 
                 # sanity check: length of youtube_interest should equal to num_days
-                if not len(google_trends['youtube_interest']) == num_days:
-                    logging.warning('+++ output the length of overtime interest does not equal to num of days!!!')
+                if not len(google_trends['daily_search']) == num_days:
+                    logging.warning('+++ Error output the length of overtime interest does not equal to num of days!!!')
 
                 query_json['trends'] = google_trends
                 output_data.write('{0}\n'.format(json.dumps(query_json)))
