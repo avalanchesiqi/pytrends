@@ -141,7 +141,7 @@ if __name__ == '__main__':
                     # initialize and start google trends crawler
                     trends_crawler = TrendReq()
                     trends_crawler.build_payload(keyword=gt_queries, timeframe=ALL_PERIOD, gprop=GPROP)
-                    alltime_search = trends_crawler.interest_over_time().tolist()
+                    alltime_search = trends_crawler.interest_over_time()
                     GLOBAL_CNT += 1
                     local_cnt += 1
 

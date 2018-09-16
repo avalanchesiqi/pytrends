@@ -140,5 +140,5 @@ class TrendReq(object):
         if df.empty:
             return None
 
-        interest_array = np.array(df['value'].apply(lambda x: int(str(x)[1: -1])).tolist())
+        interest_array = df['value'].apply(lambda x: int(str(x)[1: -1])).tolist()
         return interest_array
