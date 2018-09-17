@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 
 from pytrends.request import TrendReq
 from pytrends.utils import diff_month, calendar_days
-from pytrends.utils import plot_interest_over_time
+# from pytrends.utils import plot_interest_over_time
 
 
 if __name__ == '__main__':
@@ -242,8 +242,8 @@ if __name__ == '__main__':
                     google_trends['daily_search'] = google_trends['daily_search'][-num_days:]
                     query_json['trends'] = google_trends
 
-                    if args.plot:
-                        plot_interest_over_time(google_trends)
+                    # if args.plot:
+                    #     plot_interest_over_time(google_trends)
                 output_data.write('{0}\n'.format(json.dumps(query_json)))
 
                 # get running time
