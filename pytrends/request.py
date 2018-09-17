@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-This is the main class of google_trends crawler for daily interests.
-It crawls historical interest data from web search or youtube search.
+This is the main class of google trends crawler for daily interests.
+It crawls historical interest data from web search or youtube search, and also returns the topic id of input terms.
 
 Inspired by https://github.com/GeneralMills/pytrends and modified by Siqi Wu.
 Email: siqi dot wu at anu dot edu dot au
 """
 
 import json, requests
-import numpy as np
 import pandas as pd
 
 from pytrends import exceptions
@@ -23,6 +22,7 @@ class TrendReq(object):
 
     GENERAL_URL = 'https://trends.google.com/trends/api/explore'
     INTEREST_OVER_TIME_URL = 'https://trends.google.com/trends/api/widgetdata/multiline'
+    RELATED_QUERIES_URL = 'https://trends.google.com/trends/api/widgetdata/relatedsearches'
 
     def __init__(self, hl='en-US', tz=360, geo='', proxies=''):
         """ Initialize default values for params
@@ -48,6 +48,7 @@ class TrendReq(object):
         # initialize widget payloads
         self.token_payload = dict()
         self.interest_over_time_widget = dict()
+        self.related_topics_widget_list = dict()
 
     def _get_data(self, url, method=GET_METHOD, trim_chars=0, **kwargs):
         """ Send a request to Google and return the JSON response as a Python object.
@@ -119,6 +120,8 @@ class TrendReq(object):
         for widget in widget_dict:
             if widget['id'] == 'TIMESERIES':
                 self.interest_over_time_widget = widget
+            if widget['id'] == 'RELATED_TOPICS':
+                self.related_topics_widget_list = widget
         return
 
     def interest_over_time(self):
@@ -134,11 +137,31 @@ class TrendReq(object):
 
         # make the request and parse the returned json
         req_json = self._get_data(url=TrendReq.INTEREST_OVER_TIME_URL, method=TrendReq.GET_METHOD, trim_chars=5,
-                                  params=over_time_payload,)
+                                  params=over_time_payload, )
 
         df = pd.DataFrame(req_json['default']['timelineData'])
         if df.empty:
             return None
 
-        interest_array = df['value'].apply(lambda x: int(str(x)[1: -1])).tolist()
-        return interest_array
+        interest_list = df['value'].apply(lambda x: int(str(x)[1: -1])).tolist()
+        return interest_list
+
+    def related_topics(self):
+        """ Request data from Google's Related Topics section and return a dictionary of dataframes.
+        If no top and/or rising related topics are found, the value for the key "top" and/or "rising" will be None.
+        """
+
+        related_payload = {
+            # convert to string as requests will mangle
+            'req': json.dumps(self.related_topics_widget_list['request']),
+            'token': self.related_topics_widget_list['token'],
+            'tz': self.tz
+        }
+
+        # make the request and parse the returned json
+        req_json = self._get_data(url=TrendReq.RELATED_QUERIES_URL, method=TrendReq.GET_METHOD, trim_chars=5,
+                                  params=related_payload, )
+
+        related_topics_list = req_json['default']['rankedList'][0]['rankedKeyword']
+        related_topics_list = [dict(x['topic'], **{'value': x['value']}) for x in related_topics_list]
+        return related_topics_list

@@ -8,7 +8,7 @@ Example inputs:
 {"keyword": "usher - rivals", "gt_queries": "\"usher rivals\" + \"rivals usher\"", "vid": ["IYRJYApTlUQ"], "start_date": "2016-09-02", "popularity": 14016762}
 
 Example query:
-python example.py -i data/query_partition.json -o data/out_partition.json -v
+python example.py -i data/example_queries.json -o data/example_out.json -v
 """
 
 from __future__ import print_function, division
@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 
 from pytrends.request import TrendReq
 from pytrends.utils import diff_month, calendar_days
-# from pytrends.utils import plot_interest_over_time
+from pytrends.utils import plot_interest_over_time
 
 
 if __name__ == '__main__':
@@ -55,7 +55,7 @@ if __name__ == '__main__':
 
     # == == == == == == Part 2: Set up global parameters == == == == == == #
     # sleep to avoid rate limit
-    SLEEP_TIME = 62
+    SLEEP_TIME = 6
 
     # query period from 2009-12-01 to 2017-06-30
     ALL_PERIOD = '2009-12-01 2017-06-30'
@@ -87,13 +87,32 @@ if __name__ == '__main__':
 
                 query_json = json.loads(line.rstrip())
                 keyword = query_json['keyword']
+                artist, song = keyword.split(' - ', 1)
+                gt_queries = query_json['gt_queries']
 
                 # if current keyword exists in visited query, skip current keyword
                 if len(visited_query) > 0 and keyword in visited_query:
                     # visited_query.remove(keyword)
                     continue
 
-                gt_queries = query_json['gt_queries']
+                # get the topic id if no topic exists
+                if 'topic_id' not in query_json:
+                    trends_crawler = TrendReq()
+                    trends_crawler.build_payload(keyword=gt_queries, timeframe=ALL_PERIOD, gprop=GPROP)
+                    related_topics_list = trends_crawler.related_topics()
+
+                    # select the correct mid from a list of related topics
+                    topic_id = None
+                    for topic in related_topics_list:
+                        print(topic)
+                        title = topic['title'].lower()
+                        type = topic['type'].lower()
+                        if type.startswith('song by'):
+                            # if related value is larger than 80
+                            if topic['value'] > 80:
+                                topic_id = topic['mid']
+                                break
+
                 start_date_str = query_json['start_date']
                 start_date_obj = datetime.strptime(start_date_str, '%Y-%m-%d')
                 # in Google trends setting, both ends are inclusive
@@ -114,7 +133,7 @@ if __name__ == '__main__':
 
                     # initialize and start google trends crawler
                     trends_crawler = TrendReq()
-                    trends_crawler.build_payload(keyword=gt_queries, timeframe=query_period, gprop=GPROP)
+                    trends_crawler.build_payload(keyword=topic_id, timeframe=query_period, gprop=GPROP)
                     daily_search = trends_crawler.interest_over_time().tolist()
                     GLOBAL_CNT += 1
                     local_cnt += 1
@@ -217,8 +236,8 @@ if __name__ == '__main__':
                             batch_scaled_interest.extend(google_trends['daily_search'])
                             google_trends['daily_search'] = batch_scaled_interest
 
-                        # if args.plot:
-                        #     plot_interest_over_time(google_trends)
+                        if args.plot:
+                            plot_interest_over_time(google_trends)
 
                 # == == == == == == Part 4: Update output data == == == == == == #
                 # slicing the last 'num_days' elements, this removes the first 7 days in 2009-12
