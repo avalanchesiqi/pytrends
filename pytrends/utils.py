@@ -32,13 +32,13 @@ def plot_interest_over_time(gt_dict):
     fig = plt.figure(figsize=(8, 3))
     ax1 = fig.add_subplot(1, 1, 1)
 
-    release_date_obj = datetime.strptime(gt_dict['start_date'], '%Y-%m-%d')
+    start_date_obj = datetime.strptime(gt_dict['start_date'], '%Y-%m-%d')
     end_date_obj = datetime.strptime(gt_dict['end_date'], '%Y-%m-%d')
 
-    num_daily = (end_date_obj - release_date_obj).days + 1
-    daily_axis = [release_date_obj + timedelta(days=di) for di in range(num_daily)]
+    num_daily = (end_date_obj - start_date_obj).days + 1
+    daily_axis = [start_date_obj + timedelta(days=di) for di in range(num_daily)]
 
-    ax1.plot_date(daily_axis, gt_dict['daily_search'][-num_daily:], 'r-')
+    ax1.plot_date(daily_axis, gt_dict['daily_search'], 'r-')
 
     ax1.set_xlabel('calendar date', fontsize=14)
     ax1.set_ylabel('daily search', fontsize=14)

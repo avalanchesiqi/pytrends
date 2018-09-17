@@ -148,7 +148,7 @@ class TrendReq(object):
 
     def related_topics(self):
         """ Request data from Google's Related Topics section and return a dictionary of dataframes.
-        If no top and/or rising related topics are found, the value for the key "top" and/or "rising" will be None.
+        If no top and/or rising related topics are found, the return list will be empty.
         """
 
         related_payload = {

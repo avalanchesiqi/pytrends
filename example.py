@@ -1,11 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 """
-Example to crawl youtube interest data from Google trends platform.
+Example to crawl search interest data from Google trends (unofficial) API wrapper.
 
 Example inputs:
-{"keyword": "adele - hello", "gt_queries": "\"adele hello\" + \"hello adele\"", "vid": ["YQHsXMglC9A", "DfG6VKnjrVw"], "start_date": "2015-10-23", "popularity": 1961453485}
-{"keyword": "usher - rivals", "gt_queries": "\"usher rivals\" + \"rivals usher\"", "vid": ["IYRJYApTlUQ"], "start_date": "2016-09-02", "popularity": 14016762}
+{"keyword": "adele - rolling in the deep", "gt_queries": "\"adele\" \"rolling in the deep\"", "vid": ["O-Dmt2-7VqQ", "rYEDA3JcQqw"], "start_date": "2010-12-09", "popularity": 1135201492}
 
 Example query:
 python example.py -i data/example_queries.json -o data/example_out.json -v
@@ -54,8 +53,8 @@ if __name__ == '__main__':
         output_data = open(output_path, 'w+')
 
     # == == == == == == Part 2: Set up global parameters == == == == == == #
-    # sleep to avoid rate limit
-    SLEEP_TIME = 6
+    # sleep to avoid rate limit, best practice is 60 secs in production mode
+    SLEEP_TIME = 62
 
     # query period from 2009-12-01 to 2017-06-30
     ALL_PERIOD = '2009-12-01 2017-06-30'
@@ -87,36 +86,48 @@ if __name__ == '__main__':
 
                 query_json = json.loads(line.rstrip())
                 keyword = query_json['keyword']
-                artist, song = keyword.split(' - ', 1)
-                gt_queries = query_json['gt_queries']
 
                 # if current keyword exists in visited query, skip current keyword
                 if len(visited_query) > 0 and keyword in visited_query:
-                    # visited_query.remove(keyword)
                     continue
 
                 # get the topic id if no topic exists
                 if 'topic_id' not in query_json:
+                    gt_queries = query_json['gt_queries']
+
                     trends_crawler = TrendReq()
                     trends_crawler.build_payload(keyword=gt_queries, timeframe=ALL_PERIOD, gprop=GPROP)
                     related_topics_list = trends_crawler.related_topics()
 
-                    # select the correct mid from a list of related topics
                     topic_id = None
-                    for topic in related_topics_list:
-                        print(topic)
-                        title = topic['title'].lower()
-                        type = topic['type'].lower()
-                        if type.startswith('song by'):
-                            # if related value is larger than 80
-                            if topic['value'] > 80:
-                                topic_id = topic['mid']
-                                break
+                    # select the song mid with the highest relevant score from a list of related topics
+                    for topic_quad in related_topics_list:
+                        type = topic_quad['type']
+                        # return the first song mid
+                        if type.startswith('Song by'):
+                            topic_id = topic_quad['mid']
+                            query_json.update(topic_quad)
+
+                            # # write topic id and others to new query json file
+                            # base, ext = input_path.rsplit('.', 1)
+                            # with open('{0}2.{1}'.format(base, ext), 'a') as new_queries_file:
+                            #     new_queries_file.write('{0}\n'.format(json.dumps(query_json)))
+
+                            break
+                else:
+                    topic_id = query_json['topic_id']
 
                 start_date_str = query_json['start_date']
                 start_date_obj = datetime.strptime(start_date_str, '%Y-%m-%d')
                 # in Google trends setting, both ends are inclusive
                 num_days = (end_date_obj - start_date_obj).days + 1
+
+                if topic_id is None:
+                    query_keyword = gt_queries
+                    logging.info('>>> Query for term {0}'.format(gt_queries))
+                else:
+                    query_keyword = topic_id
+                    logging.info('>>> Query for term {0}, topic "{1}", title "{2}", type "{3}", score {4}'.format(gt_queries, topic_id, topic_quad['title'], topic_quad['type'], topic_quad['value']))
 
                 # result dict
                 google_trends = {'start_date': start_date_str, 'end_date': end_date_str, 'daily_search': []}
@@ -125,7 +136,6 @@ if __name__ == '__main__':
                 # ----------- crawl branch 1 -----------
                 # if start date after 2016-11-01, we only request once to get daily interest
                 if start_date_str >= '2016-11-01':
-                    logging.info('>>> One query to be sent for query ({0})'.format(gt_queries))
                     query_period = '{0} {1}'.format(start_date_str, end_date_str)
 
                     # sleep before crawling
@@ -133,7 +143,7 @@ if __name__ == '__main__':
 
                     # initialize and start google trends crawler
                     trends_crawler = TrendReq()
-                    trends_crawler.build_payload(keyword=topic_id, timeframe=query_period, gprop=GPROP)
+                    trends_crawler.build_payload(keyword=query_keyword, timeframe=query_period, gprop=GPROP)
                     daily_search = trends_crawler.interest_over_time().tolist()
                     GLOBAL_CNT += 1
                     local_cnt += 1
@@ -143,29 +153,23 @@ if __name__ == '__main__':
                         if args.verbose:
                             logging.info('start date: {0}; number of days: {1}'.format(start_date_str, len(daily_search)))
                             logging.info(','.join(map(str, daily_search)))
-
-                        # # visualize over time interest data
-                        # if args.plot:
-                        #     plot_interest_over_time(google_trends)
                     else:
-                        logging.error('+++ No enough data for query ({0})'.format(gt_queries))
+                        logging.error('+++ No enough data for term ({0})'.format(gt_queries))
                 # ----------- crawl branch 2 -----------
                 # if release date before 2016-07-01, we query monthly data first then rescale to daily data
                 else:
-                    logging.info('>>> Query monthly interest from 2009-12-01 for query {0}'.format(gt_queries))
-
                     # sleep before crawling
                     time.sleep(SLEEP_TIME)
 
                     # initialize and start google trends crawler
                     trends_crawler = TrendReq()
-                    trends_crawler.build_payload(keyword=gt_queries, timeframe=ALL_PERIOD, gprop=GPROP)
+                    trends_crawler.build_payload(keyword=query_keyword, timeframe=ALL_PERIOD, gprop=GPROP)
                     alltime_search = trends_crawler.interest_over_time()
                     GLOBAL_CNT += 1
                     local_cnt += 1
 
                     if alltime_search is None:
-                        logging.error('+++ No enough data for query ({0})'.format(keyword))
+                        logging.error('+++ No enough data for term ({0})'.format(gt_queries))
                     else:
                         if args.verbose:
                             logging.info('>>> ALL TIME query period: {0}'.format(ALL_PERIOD))
@@ -193,8 +197,8 @@ if __name__ == '__main__':
 
                             # initialize and start google trends crawler
                             trends_crawler = TrendReq()
-                            trends_crawler.build_payload(keyword=gt_queries, timeframe=batch_query_period, gprop=GPROP)
-                            # return interest over time as a numpy array, every batch covers a month
+                            trends_crawler.build_payload(keyword=query_keyword, timeframe=batch_query_period, gprop=GPROP)
+                            # return interest over time as a numpy array, every batch covers eight months
                             batch_raw_interest = trends_crawler.interest_over_time()
                             GLOBAL_CNT += 1
                             local_cnt += 1
@@ -218,36 +222,28 @@ if __name__ == '__main__':
                                     else:
                                         sfactor.extend([batch_month_weight[i] / monthly_total_interest[i]] * t)
                                 sfactor = np.array(sfactor)
-
                                 batch_scaled_interest = (batch_raw_interest * sfactor).tolist()
-
-                                if args.verbose:
-                                    logging.info('>>> {0}'.format(','.join(map(str, batch_raw_interest))))
 
                             else:
                                 batch_start_date_obj = datetime.strptime(batch_start_date, '%Y-%m-%d')
                                 batch_end_date_obj = datetime.strptime(batch_end_date, '%Y-%m-%d')
                                 batch_num_days = (batch_end_date_obj - batch_start_date_obj).days + 1
+                                batch_raw_interest = [0] * batch_num_days
                                 batch_scaled_interest = [0] * batch_num_days
 
-                                if args.verbose:
-                                    logging.info('>>> {0}'.format(','.join(map(str, batch_scaled_interest))))
-
+                            if args.verbose:
+                                logging.info('>>> {0}'.format(','.join(map(str, batch_raw_interest))))
                             batch_scaled_interest.extend(google_trends['daily_search'])
                             google_trends['daily_search'] = batch_scaled_interest
 
-                        if args.plot:
-                            plot_interest_over_time(google_trends)
-
                 # == == == == == == Part 4: Update output data == == == == == == #
-                # slicing the last 'num_days' elements, this removes the first 7 days in 2009-12
-                google_trends['daily_search'] = google_trends['daily_search'][-num_days:]
+                if len(google_trends['daily_search']) > 0:
+                    # slicing the last 'num_days' elements, this removes the first 7 days in 2009-12
+                    google_trends['daily_search'] = google_trends['daily_search'][-num_days:]
+                    query_json['trends'] = google_trends
 
-                # sanity check: length of youtube_interest should equal to num_days
-                if not len(google_trends['daily_search']) == num_days:
-                    logging.warning('+++ Error output the length of overtime interest does not equal to num of days!!!')
-
-                query_json['trends'] = google_trends
+                    if args.plot:
+                        plot_interest_over_time(google_trends)
                 output_data.write('{0}\n'.format(json.dumps(query_json)))
 
                 # get running time
