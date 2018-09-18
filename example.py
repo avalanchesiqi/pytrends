@@ -16,7 +16,7 @@ import numpy as np
 from datetime import datetime, timedelta
 
 from pytrends.request import TrendReq
-from pytrends.utils import diff_month, calendar_days
+from pytrends.utils import reformat, diff_month, calendar_days
 # from pytrends.utils import plot_interest_over_time
 
 
@@ -98,21 +98,32 @@ if __name__ == '__main__':
                     trends_crawler.build_payload(keyword=gt_queries, timeframe=ALL_PERIOD, gprop=GPROP)
                     related_topics_list = trends_crawler.related_topics()
 
+                    artist1, title1 = keyword.split(' - ', 1)
+                    artist1 = reformat(artist1)
+                    title1 = reformat(title1)
+
                     topic_id = None
                     # select the song mid with the highest relevant score from a list of related topics
                     for topic_quad in related_topics_list:
                         type = topic_quad['type']
+                        value = topic_quad['value']
                         # return the first song mid
                         if type.startswith('Song by'):
-                            topic_id = topic_quad['mid']
-                            query_json.update(topic_quad)
-
+                            if value > 40:
+                                topic_id = topic_quad['mid']
+                                query_json.update(topic_quad)
+                                break
+                            else:
+                                artist2 = reformat(type[8:].lower())
+                                title2 = reformat(topic_quad['title'].lower())
+                                if artist1 in artist2 and title1 in title2:
+                                    topic_id = topic_quad['mid']
+                                    query_json.update(topic_quad)
+                                    break
                             # # write topic id and others to new query json file
                             # base, ext = input_path.rsplit('.', 1)
                             # with open('{0}2.{1}'.format(base, ext), 'a') as new_queries_file:
                             #     new_queries_file.write('{0}\n'.format(json.dumps(query_json)))
-
-                            break
                 else:
                     topic_id = query_json['topic_id']
 
@@ -159,7 +170,6 @@ if __name__ == '__main__':
                 else:
                     # sleep before crawling
                     time.sleep(SLEEP_TIME)
-
                     # initialize and start google trends crawler
                     trends_crawler = TrendReq()
                     trends_crawler.build_payload(keyword=query_keyword, timeframe=ALL_PERIOD, gprop=GPROP)

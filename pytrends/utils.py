@@ -3,10 +3,44 @@
 Helper functions in pytrends.
 """
 
+import re
 from datetime import datetime, timedelta
 from collections import Counter
 # import matplotlib.pyplot as plt
 # import matplotlib.dates as mdates
+
+
+def reformat(text):
+    # remove punctuations and double whitespace
+    text = _remove_version(text)
+    for ch in ["’s", '"', '!', "*", '.', ':', '‐', '-', "’", "'", '/']:
+            text = text.replace(ch, ' ')
+    text = text.replace('$', 's')
+    for ch in ["+", "&"]:
+        if ' {0} '.format(ch) in text:
+            text = text.replace(' {0} '.format(ch), ' and ')
+        elif ch in text:
+            text = text.replace(ch, ' and ')
+    return re.sub(' +', ' ', text).strip()
+
+
+def _remove_version(text):
+    """ Remove texts within parentheses and brackets.
+    """
+    text = text.replace('"', '')
+    ret = ''
+    cnt = 0
+    for ch in text:
+        if ch == '(' or ch == '[' or ch == '“':
+            if len(ret.strip()) == 0:
+                cnt += 1
+            else:
+                return ret.strip()
+        elif ch == ')' or ch == ']' or ch == '”':
+            cnt -= 1
+        elif cnt == 0:
+            ret += ch
+    return ret.strip()
 
 
 def calendar_days(start_date, end_date):
