@@ -86,6 +86,7 @@ if __name__ == '__main__':
 
                 query_json = json.loads(line.rstrip())
                 keyword = query_json['keyword']
+                gt_queries = query_json['gt_queries']
 
                 # if current keyword exists in visited query, skip current keyword
                 if len(visited_query) > 0 and keyword in visited_query:
@@ -93,8 +94,6 @@ if __name__ == '__main__':
 
                 # get the topic id if no topic exists
                 if 'topic_id' not in query_json:
-                    gt_queries = query_json['gt_queries']
-
                     trends_crawler = TrendReq()
                     trends_crawler.build_payload(keyword=gt_queries, timeframe=ALL_PERIOD, gprop=GPROP)
                     related_topics_list = trends_crawler.related_topics()
@@ -127,7 +126,7 @@ if __name__ == '__main__':
                     logging.info('>>> Query for term {0}'.format(gt_queries))
                 else:
                     query_keyword = topic_id
-                    logging.info('>>> Query for term {0}, topic "{1}", title "{2}", type "{3}", score {4}'.format(gt_queries, topic_id, topic_quad['title'], topic_quad['type'], topic_quad['value']))
+                    logging.info('>>> Query for term {0}, topic "{1}", title "{2}", type "{3}", score {4}'.format(gt_queries, topic_id, query_json['title'], query_json['type'], query_json['value']))
 
                 # result dict
                 google_trends = {'start_date': start_date_str, 'end_date': end_date_str, 'daily_search': []}
