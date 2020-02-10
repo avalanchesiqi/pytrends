@@ -25,7 +25,6 @@ if __name__ == '__main__':
     # == == == == == == Part 1: Read youtube insight json from file == == == == == == #
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', help='input file path', required=True)
-    parser.add_argument('-o', '--output', help='output file path', required=True)
     parser.add_argument('-p', '--plot', dest='plot', action='store_true', default=False)
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', default=False)
     parser.set_defaults(plot=False)
@@ -33,20 +32,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     input_path = args.input
-    output_path = args.output
     logging.basicConfig(filename='./google_trends_crawler.log', level=logging.INFO)
 
     if not os.path.exists(input_path):
         print('>>> Input file does not exist!')
         print('>>> Exit...')
         sys.exit(1)
-
-    print('>>> Start a new output file...')
-    output_data = open(output_path, 'w+')
-
-    # == == == == == == Part 2: Set up global parameters == == == == == == #
-    # sleep to avoid rate limit, best practice is 60 secs in production mode
-    SLEEP_TIME = 62
 
     # == == == == == == Part 3: Start Google trends crawler == == == == == == #
     # read queries from the input file
@@ -64,7 +55,5 @@ if __name__ == '__main__':
             # result dict
             google_trends = {'start_date': start_date_str, 'end_date': end_date_str, 'daily_search': []}
 
-            print(dailydata.get_daily_data(word=mid, start_year=2010, start_mon=1, stop_year=2018, stop_mon=4))
-
-    # == == == == == == Part 5: Close file handler == == == == == == #
-    output_data.close()
+            res_df = dailydata.get_daily_data(word=mid, start_year=2017, start_mon=1, stop_year=2018, stop_mon=4)
+            res_df.to_csv('data/{0}.csv'.format(keyword))
